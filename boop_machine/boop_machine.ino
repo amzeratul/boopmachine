@@ -177,12 +177,18 @@ void boopArm(int len)
   boopTime = millis();
   boopLen = len;
 
-  setServoPos(armDownAngle);
+  int nCycles = (len + 10) / 20;
+  desiredServoPos = armDownAngle;
+  doSetServoPos(nCycles);
+  desiredServoPos = armUpAngle;
+  doSetServoPos(2);
+
+  //setServoPos(armDownAngle);
 }
 
 void boop()
 {
-  boopArm(300);
+  boopArm(600);
 
   curFile = FilePlaying::Boop;
   musicPlayer->startPlayingFile("boop.ogg");
@@ -250,6 +256,9 @@ float beatFilter(float sample) {
 
 void sampleMusic()
 {
+  musicValue = 128;
+  return;
+
   static int sampleN = 0;
   
   uint16_t leftSample = musicPlayer->sciRead(0xC015);
@@ -273,7 +282,7 @@ void sampleMusic()
   */
 
   musicValue = uint16_t(fabs(value * 0.5f));
-  
+
   //musicValue = (musicValue * 200 + (curMusicValue >> 8) * 56) >> 8;
 }
 
@@ -327,7 +336,7 @@ void loop()
   }
 
   // Set LED brightness
-  analogWrite(ledPin, pressed ? 255 : (booping ? boopBrightness : (playing ? musicValue : 64)));
+  analogWrite(ledPin, pressed ? 255 : (booping ? boopBrightness : 64));
 
   //delayMicroseconds(10);
 }
