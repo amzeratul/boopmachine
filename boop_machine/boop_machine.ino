@@ -1,3 +1,25 @@
+/*
+ * 
+Copyright 2017 Rodrigo Braz Monteiro
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+*/
+
+
+// Note: this is some really bad late night code. I apologise for it.
+
+
+
 // include SPI, MP3 and SD libraries
 #include <SPI.h>
 #include <Adafruit_VS1053.h>
@@ -22,9 +44,6 @@ const int ledPin = 10;
 
 constexpr int armUpAngle = -20;
 constexpr int armDownAngle = 35;
-//constexpr int armUpAngle = 30;
-//constexpr int armDownAngle = 60;
-
 
 enum class FilePlaying {
   None,
@@ -60,7 +79,7 @@ int boopOnMeTimes[124] = { 1746, 1767, 1786, 1806, 1835, 1874, 1912, 1947, 1966,
                            5093, 5115, 5592, 5647, 5694, 6158, 6212, 6261, 6904, 7225 };
 
 
-Adafruit_VS1053_FilePlayer* musicPlayer;// = Adafruit_VS1053_FilePlayer(shieldReset, shieldCS, shieldDCS, dreq, cardCS);
+Adafruit_VS1053_FilePlayer* musicPlayer;
 
 void initMusicPlayer()
 {
@@ -99,15 +118,6 @@ void setup()
   // Setup servo
   //myservo = new Servo();
   pinMode(servoPin, OUTPUT);
-
-/*
-  for (int i = 0; i < 50; ++i) {
-    desiredServoPos = armUpAngle;
-    doSetServoPos(20);
-    desiredServoPos = armDownAngle;
-    doSetServoPos(20);
-  }
-  */
   
   // Music player
   initMusicPlayer();
@@ -222,70 +232,6 @@ void updateMusicBoop()
   }  
 }
 
-// 20 - 200hz Single Pole Bandpass IIR Filter
-float bassFilter(float sample) {
-    static float xv[3] = {0,0,0}, yv[3] = {0,0,0};
-    xv[0] = xv[1]; xv[1] = xv[2]; 
-    xv[2] = sample / 9.1f;
-    yv[0] = yv[1]; yv[1] = yv[2]; 
-    yv[2] = (xv[2] - xv[0])
-        + (-0.7960060012f * yv[0]) + (1.7903124146f * yv[1]);
-    return yv[2];
-}
-
-// 10hz Single Pole Lowpass IIR Filter
-float envelopeFilter(float sample) { //10hz low pass
-    static float xv[2] = {0,0}, yv[2] = {0,0};
-    xv[0] = xv[1]; 
-    xv[1] = sample / 160.f;
-    yv[0] = yv[1]; 
-    yv[1] = (xv[0] + xv[1]) + (0.9875119299f * yv[0]);
-    return yv[1];
-}
-
-// 1.7 - 3.0hz Single Pole Bandpass IIR Filter
-float beatFilter(float sample) {
-    static float xv[3] = {0,0,0}, yv[3] = {0,0,0};
-    xv[0] = xv[1]; xv[1] = xv[2]; 
-    xv[2] = sample / 7.015f;
-    yv[0] = yv[1]; yv[1] = yv[2]; 
-    yv[2] = (xv[2] - xv[0])
-        + (-0.7169861741f * yv[0]) + (1.4453653501f * yv[1]);
-    return yv[2];
-}
-
-void sampleMusic()
-{
-  musicValue = 128;
-  return;
-
-  static int sampleN = 0;
-  
-  uint16_t leftSample = musicPlayer->sciRead(0xC015);
-  uint16_t rightSample = musicPlayer->sciRead(0xC016);
-  uint16_t curMusicValue = (leftSample >> 1) + (rightSample >> 1);
-
-  float fSample = float(long(curMusicValue) - 32768) * 0.015625;
-  float value = bassFilter(fSample);
-  value = fabs(value);
-
-  /*
-  float envelope = envelopeFilter(value);
-  sampleN++;
-
-  if (sampleN == 20) {
-    float beat = beatFilter(envelope);
-    //musicValue = beat > 1.0f ? 255 : 0;
-    musicValue = uint16_t(fabs(beat));
-    sampleN = 0;
-  }
-  */
-
-  musicValue = uint16_t(fabs(value * 0.5f));
-
-  //musicValue = (musicValue * 200 + (curMusicValue >> 8) * 56) >> 8;
-}
-
 void loop()
 {
   updateServo();
@@ -298,9 +244,6 @@ void loop()
     pressStartTime = millis();
   }
 
-  // LED state
-  //analogWrite(ledPin, pressed ? 255 : 32);
-
   bool playing = !musicPlayer->stopped();
   
   if (playing) {
@@ -309,7 +252,6 @@ void loop()
       curFile = FilePlaying::None;
     } else {
       updateMusicBoop();
-      //sampleMusic();    
     }
   } else {
     curFile = FilePlaying::None;
@@ -323,11 +265,9 @@ void loop()
     }
   }
 
-  // Check if the boop is done
-  int boopBrightness = 255;
+  // Check if the boop is done (DEAD CODE?)
   if (booping) {
     unsigned long now = millis();
-    //boopBrightness = int(long(max(0, (boopTime + boopLen - now))) * 255 / boopLen);
     if ((unsigned long)(now - boopTime) > (unsigned long)boopLen) {
       booping = false;
       setServoPos(armUpAngle);
@@ -336,8 +276,6 @@ void loop()
   }
 
   // Set LED brightness
-  analogWrite(ledPin, pressed ? 255 : (booping ? boopBrightness : 64));
-
-  //delayMicroseconds(10);
+  analogWrite(ledPin, pressed ? 255 : (booping ? 255 : 64));
 }
 
