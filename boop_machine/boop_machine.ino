@@ -47,6 +47,8 @@ uint16_t musicValue = 0;
 int desiredServoPos = armUpAngle;
 int servoPosSets = 0;
 
+constexpr int signalLen = 25;
+
 
 // The following times are in centiseconds (not milliseconds, as that wouldn't fit an int16) from the start of the song
 int boopOnMeTimes[124] = { 1746, 1767, 1786, 1806, 1835, 1874, 1912, 1947, 1966, 1984, 2000, 2016, 2035, 2052, 2071, 2090, 2123, 2157, 2195,
@@ -79,7 +81,7 @@ void initMusicPlayer()
   }
 
   // Set volume for left, right channels. lower numbers == louder volume!
-  musicPlayer->setVolume(10, 10);
+  musicPlayer->setVolume(50, 50);
   musicPlayer->useInterrupt(VS1053_FILEPLAYER_PIN_INT);  // DREQ int
 }
  
@@ -97,6 +99,15 @@ void setup()
   // Setup servo
   //myservo = new Servo();
   pinMode(servoPin, OUTPUT);
+
+/*
+  for (int i = 0; i < 50; ++i) {
+    desiredServoPos = armUpAngle;
+    doSetServoPos(20);
+    desiredServoPos = armDownAngle;
+    doSetServoPos(20);
+  }
+  */
   
   // Music player
   initMusicPlayer();
@@ -111,6 +122,23 @@ void setup()
   analogWrite(ledPin, 64);
 }
 
+void doSetServoPos(int n)
+{
+  servoSetTime = millis();
+
+  int pulseLen = (desiredServoPos * 50 + 5) / 9 + 1000;   // "(pos * 50 + 5) / 9" = "(pos * 1000 + 90) / 180", but without overflowing the 16-bit int
+  int totalLen = 20000;
+
+  for (int i = 0; i < n; ++i) {
+    digitalWrite(servoPin, HIGH);
+    delayMicroseconds(pulseLen);
+    digitalWrite(servoPin, LOW);
+    delayMicroseconds(totalLen - pulseLen);
+  }
+  
+  servoPosSets--;
+}
+
 void setServoPos(int pos)
 {
   bool changed = pos != desiredServoPos;
@@ -120,47 +148,36 @@ void setServoPos(int pos)
     unsigned long now = millis();
     unsigned long elapsed = now - servoSetTime;
 
-    int n = 1;
-    if (elapsed < 25) {
-      delay(25 - elapsed);
-    } else if (elapsed > 400) {
-      n = 12;
+    int n = 2;
+    if (elapsed > (unsigned long) 500) {
+       n = 8;
+    } else if (elapsed > (unsigned long) 300) {
+      n = 6;
     }
-    servoPosSets = n;
-    doSetServoPos();
+    servoPosSets = 1;
+    doSetServoPos(n);
   }
-}
-
-void doSetServoPos()
-{
-  servoSetTime = millis();
-
-  int pulseLen = (desiredServoPos * 50 + 5) / 9 + 1000;   // "(pos * 50 + 5) / 9" = "(pos * 1000 + 90) / 180", but without overflowing the 16-bit int
-  digitalWrite(servoPin, HIGH);
-  delayMicroseconds(pulseLen);
-  digitalWrite(servoPin, LOW);
-  
-  servoPosSets--;
 }
 
 void updateServo()
 {
+  return;
   if (servoPosSets > 0) {
     unsigned long now = millis();
     unsigned long elapsed = now - servoSetTime;
-    if (elapsed >= 30) {
-      doSetServoPos();
+    if (elapsed >= (unsigned long)signalLen) {
+      doSetServoPos(1);
     }
   }
 }
 
 void boopArm(int len)
 {
-  setServoPos(armDownAngle);
-
   booping = true;
   boopTime = millis();
   boopLen = len;
+
+  setServoPos(armDownAngle);
 }
 
 void boop()
@@ -193,7 +210,7 @@ void updateMusicBoop()
       const int maxBoopTime = following - next - 50;
 
       int desiredBoop = next == 6904 ? 3000 : 300;
-      int t = max(100, min(desiredBoop, maxBoopTime));
+      int t = max(50, min(desiredBoop, maxBoopTime));
       boopArm(desiredBoop);
     }
   }  
@@ -283,7 +300,7 @@ void loop()
       curFile = FilePlaying::None;
     } else {
       updateMusicBoop();
-      sampleMusic();    
+      //sampleMusic();    
     }
   } else {
     curFile = FilePlaying::None;
@@ -298,11 +315,11 @@ void loop()
   }
 
   // Check if the boop is done
-  int boopBrightness = 0;
+  int boopBrightness = 255;
   if (booping) {
     unsigned long now = millis();
-    boopBrightness = int(long(max(0, (boopTime + boopLen - now))) * 255 / boopLen);
-    if ((unsigned long)(now - boopTime) > boopLen) {
+    //boopBrightness = int(long(max(0, (boopTime + boopLen - now))) * 255 / boopLen);
+    if ((unsigned long)(now - boopTime) > (unsigned long)boopLen) {
       booping = false;
       setServoPos(armUpAngle);
       boopTime = now;
@@ -312,6 +329,6 @@ void loop()
   // Set LED brightness
   analogWrite(ledPin, pressed ? 255 : (booping ? boopBrightness : (playing ? musicValue : 64)));
 
-  delayMicroseconds(10);
+  //delayMicroseconds(10);
 }
 
